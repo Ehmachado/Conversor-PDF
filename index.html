@@ -6,9 +6,9 @@
     <title>Conversor de PDF - Banco do Brasil</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pizzip/3.1.4/pizzip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.37.11/docxtemplater.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -169,6 +169,38 @@
             color: #FFF200;
         }
 
+        .options-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .options-section.active {
+            display: block;
+        }
+
+        .option-item {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .option-item input[type="checkbox"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .option-item label {
+            color: #003D82;
+            font-size: 14px;
+            cursor: pointer;
+            user-select: none;
+        }
+
         .convert-btn {
             width: 100%;
             background: #003D82;
@@ -253,6 +285,17 @@
             margin-top: 20px;
         }
 
+        .info-badge {
+            display: inline-block;
+            background: #003D82;
+            color: #FFF200;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-left: 5px;
+            font-weight: bold;
+        }
+
         @media (max-width: 600px) {
             .container {
                 padding: 20px;
@@ -272,7 +315,7 @@
     <div class="container">
         <div class="header">
             <h1>📄 Conversor de PDF</h1>
-            <p>Converta seus arquivos PDF para diversos formatos</p>
+            <p>Conversão profissional com preservação de formatação</p>
         </div>
 
         <div class="upload-area" id="uploadArea">
@@ -290,11 +333,49 @@
         <div class="format-selection">
             <label class="format-label">Escolha o formato de conversão:</label>
             <div class="format-buttons">
-                <button class="format-btn active" data-format="xlsx">XLSX</button>
-                <button class="format-btn" data-format="csv">CSV</button>
-                <button class="format-btn" data-format="docx">DOCX</button>
+                <button class="format-btn active" data-format="xlsx">XLSX <span class="info-badge">PRO</span></button>
+                <button class="format-btn" data-format="csv">CSV <span class="info-badge">PRO</span></button>
+                <button class="format-btn" data-format="docx">DOCX <span class="info-badge">PRO</span></button>
                 <button class="format-btn" data-format="jpeg">JPEG</button>
                 <button class="format-btn" data-format="png">PNG</button>
+            </div>
+        </div>
+
+        <div class="options-section" id="optionsSection">
+            <div class="option-item">
+                <input type="checkbox" id="detectTables" checked>
+                <label for="detectTables">Detectar tabelas automaticamente</label>
+            </div>
+            <div class="option-item">
+                <input type="checkbox" id="mergeSpaces" checked>
+                <label for="mergeSpaces">Mesclar células com espaçamento</label>
+            </div>
+            <div class="option-item">
+                <input type="checkbox" id="preserveFormatting" checked>
+                <label for="preserveFormatting">Preservar formatação numérica</label>
+            </div>
+            <div class="option-item">
+                <input type="checkbox" id="autoColumnWidth">
+                <label for="autoColumnWidth">Ajustar largura das colunas</label>
+            </div>
+        </div>
+
+        <div class="options-section" id="docxOptionsSection">
+            <div class="option-item">
+                <input type="checkbox" id="preserveMargins" checked>
+                <label for="preserveMargins">Preservar margens do documento</label>
+            </div>
+            <div class="option-item">
+                <input type="checkbox" id="preserveParagraphs" checked>
+                <label for="preserveParagraphs">Detectar parágrafos automaticamente</label>
+            </div>
+            <div class="option-item">
+                <input type="checkbox" id="preserveFontSize" checked>
+                <label for="preserveFontSize">Preservar tamanho de fontes</label>
+            </div>
+            <div class="option-item">
+                <input type="checkbox" id="detectHeadings" checked>
+                <label for="detectHeadings">Detectar títulos e cabeçalhos</label>
             </div>
         </div>
 
@@ -328,6 +409,20 @@
         const progressBar = document.getElementById('progressBar');
         const progressFill = document.getElementById('progressFill');
         const statusMessage = document.getElementById('statusMessage');
+        const optionsSection = document.getElementById('optionsSection');
+        const docxOptionsSection = document.getElementById('docxOptionsSection');
+
+        // Options
+        const detectTablesCheckbox = document.getElementById('detectTables');
+        const mergeSpacesCheckbox = document.getElementById('mergeSpaces');
+        const preserveFormattingCheckbox = document.getElementById('preserveFormatting');
+        const autoColumnWidthCheckbox = document.getElementById('autoColumnWidth');
+        
+        // DOCX Options
+        const preserveMarginsCheckbox = document.getElementById('preserveMargins');
+        const preserveParagraphsCheckbox = document.getElementById('preserveParagraphs');
+        const preserveFontSizeCheckbox = document.getElementById('preserveFontSize');
+        const detectHeadingsCheckbox = document.getElementById('detectHeadings');
 
         // Upload area click
         uploadArea.addEventListener('click', () => fileInput.click());
@@ -361,6 +456,16 @@
                 formatBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 selectedFormat = btn.dataset.format;
+                
+                // Show appropriate options
+                optionsSection.classList.remove('active');
+                docxOptionsSection.classList.remove('active');
+                
+                if (selectedFormat === 'xlsx' || selectedFormat === 'csv') {
+                    optionsSection.classList.add('active');
+                } else if (selectedFormat === 'docx') {
+                    docxOptionsSection.classList.add('active');
+                }
             });
         });
 
@@ -384,6 +489,13 @@
                 fileInfo.classList.add('active');
                 convertBtn.disabled = false;
                 statusMessage.classList.remove('active');
+                
+                // Show appropriate options
+                if (selectedFormat === 'xlsx' || selectedFormat === 'csv') {
+                    optionsSection.classList.add('active');
+                } else if (selectedFormat === 'docx') {
+                    docxOptionsSection.classList.add('active');
+                }
             }
         }
 
@@ -423,10 +535,10 @@
                 switch (selectedFormat) {
                     case 'xlsx':
                     case 'csv':
-                        await convertToSpreadsheet(pdf, baseName);
+                        await convertToSpreadsheetAdvanced(pdf, baseName);
                         break;
                     case 'docx':
-                        await convertToDocx(pdf, baseName);
+                        await convertToDocxAdvanced(pdf, baseName);
                         break;
                     case 'jpeg':
                     case 'png':
@@ -447,37 +559,283 @@
             }
         }
 
-        async function convertToSpreadsheet(pdf, baseName) {
-            const data = [];
+        // Advanced DOCX conversion with structure preservation
+        async function convertToDocxAdvanced(pdf, baseName) {
+            const preserveMargins = preserveMarginsCheckbox.checked;
+            const preserveParagraphs = preserveParagraphsCheckbox.checked;
+            const preserveFontSize = preserveFontSizeCheckbox.checked;
+            const detectHeadings = detectHeadingsCheckbox.checked;
+
+            // Fetch document dimensions from first page
+            const firstPage = await pdf.getPage(1);
+            const viewport = firstPage.getViewport({ scale: 1.0 });
+            const pageWidth = viewport.width;
+            const pageHeight = viewport.height;
+
+            // Build document content
+            let docContent = [];
             
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
                 
-                data.push([`--- Página ${i} ---`]);
+                // Extract items with detailed positioning
+                const items = textContent.items.map(item => ({
+                    text: item.str,
+                    x: item.transform[4],
+                    y: item.transform[5],
+                    width: item.width,
+                    height: item.height,
+                    fontSize: Math.round(Math.sqrt(
+                        Math.pow(item.transform[0], 2) + Math.pow(item.transform[1], 2)
+                    ))
+                }));
+
+                // Group items into structured elements
+                const structuredContent = structureContent(
+                    items, 
+                    pageWidth, 
+                    pageHeight,
+                    preserveParagraphs,
+                    detectHeadings
+                );
+
+                docContent = docContent.concat(structuredContent);
                 
-                let currentLine = '';
-                textContent.items.forEach(item => {
-                    if (item.str.trim()) {
-                        currentLine += item.str + ' ';
-                        if (item.hasEOL || currentLine.length > 100) {
-                            data.push([currentLine.trim()]);
-                            currentLine = '';
-                        }
-                    }
-                });
-                
-                if (currentLine.trim()) {
-                    data.push([currentLine.trim()]);
+                // Add page break if not last page
+                if (pageNum < pdf.numPages) {
+                    docContent.push({ type: 'pageBreak' });
                 }
                 
-                data.push(['']);
-                showProgress(50 + (i / pdf.numPages) * 40);
+                showProgress(50 + (pageNum / pdf.numPages) * 40);
             }
 
-            const ws = XLSX.utils.aoa_to_sheet(data);
+            // Generate DOCX file
+            const docxBlob = await generateDocx(
+                docContent, 
+                preserveMargins, 
+                preserveFontSize,
+                pageWidth,
+                pageHeight
+            );
+            
+            saveAs(docxBlob, `${baseName}.docx`);
+        }
+
+        function structureContent(items, pageWidth, pageHeight, preserveParagraphs, detectHeadings) {
+            if (items.length === 0) return [];
+
+            // Sort items by vertical position (top to bottom)
+            items.sort((a, b) => {
+                const yDiff = b.y - a.y;
+                if (Math.abs(yDiff) > 5) return yDiff;
+                return a.x - b.x;
+            });
+
+            const content = [];
+            let currentParagraph = null;
+            let previousY = items[0].y;
+            let previousFontSize = items[0].fontSize;
+
+            items.forEach((item, index) => {
+                if (!item.text.trim()) return;
+
+                const yDiff = Math.abs(item.y - previousY);
+                const isNewLine = yDiff > 5;
+                const isLargeGap = yDiff > item.height * 1.5;
+                const fontSizeChanged = Math.abs(item.fontSize - previousFontSize) > 2;
+
+                // Detect headings based on font size
+                let isHeading = false;
+                if (detectHeadings && item.fontSize > 14) {
+                    isHeading = true;
+                }
+
+                // Start new paragraph if needed
+                if (!currentParagraph || (preserveParagraphs && (isLargeGap || fontSizeChanged))) {
+                    if (currentParagraph && currentParagraph.text.trim()) {
+                        content.push(currentParagraph);
+                    }
+                    currentParagraph = {
+                        type: isHeading ? 'heading' : 'paragraph',
+                        text: item.text,
+                        fontSize: item.fontSize,
+                        indent: Math.round(item.x / pageWidth * 100)
+                    };
+                } else if (isNewLine) {
+                    // New line within paragraph
+                    currentParagraph.text += '\n' + item.text;
+                } else {
+                    // Continue same line
+                    currentParagraph.text += ' ' + item.text;
+                }
+
+                previousY = item.y;
+                previousFontSize = item.fontSize;
+            });
+
+            // Add last paragraph
+            if (currentParagraph && currentParagraph.text.trim()) {
+                content.push(currentParagraph);
+            }
+
+            return content;
+        }
+
+        async function generateDocx(content, preserveMargins, preserveFontSize, pageWidth, pageHeight) {
+            // Create DOCX XML structure
+            let bodyXml = '';
+
+            content.forEach(item => {
+                if (item.type === 'pageBreak') {
+                    bodyXml += '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+                } else if (item.type === 'heading') {
+                    const fontSize = preserveFontSize ? item.fontSize * 2 : 28;
+                    bodyXml += `
+                        <w:p>
+                            <w:pPr>
+                                <w:spacing w:before="240" w:after="120"/>
+                                <w:jc w:val="left"/>
+                            </w:pPr>
+                            <w:r>
+                                <w:rPr>
+                                    <w:b/>
+                                    <w:sz w:val="${fontSize}"/>
+                                </w:rPr>
+                                <w:t xml:space="preserve">${escapeXml(item.text)}</w:t>
+                            </w:r>
+                        </w:p>`;
+                } else {
+                    const fontSize = preserveFontSize ? item.fontSize * 2 : 22;
+                    const lines = item.text.split('\n');
+                    
+                    lines.forEach(line => {
+                        bodyXml += `
+                            <w:p>
+                                <w:pPr>
+                                    <w:spacing w:after="100"/>
+                                </w:pPr>
+                                <w:r>
+                                    <w:rPr>
+                                        <w:sz w:val="${fontSize}"/>
+                                    </w:rPr>
+                                    <w:t xml:space="preserve">${escapeXml(line)}</w:t>
+                                </w:r>
+                            </w:p>`;
+                    });
+                }
+            });
+
+            // Calculate margins (convert from PDF points to twips: 1 point = 20 twips)
+            const marginTop = preserveMargins ? '1440' : '1440';
+            const marginBottom = preserveMargins ? '1440' : '1440';
+            const marginLeft = preserveMargins ? '1440' : '1440';
+            const marginRight = preserveMargins ? '1440' : '1440';
+
+            // Complete document XML
+            const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+    <w:body>
+        <w:sectPr>
+            <w:pgSz w:w="11906" w:h="16838"/>
+            <w:pgMar w:top="${marginTop}" w:right="${marginRight}" 
+                     w:bottom="${marginBottom}" w:left="${marginLeft}"
+                     w:header="708" w:footer="708" w:gutter="0"/>
+        </w:sectPr>
+        ${bodyXml}
+    </w:body>
+</w:document>`;
+
+            // Create DOCX package
+            const zip = new PizZip();
+            
+            // Add required files
+            zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+    <Default Extension="xml" ContentType="application/xml"/>
+    <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`);
+
+            zip.folder('_rels').file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+
+            zip.folder('word').file('document.xml', documentXml);
+            
+            zip.folder('word/_rels').file('document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+</Relationships>`);
+
+            // Generate blob
+            const blob = zip.generate({
+                type: 'blob',
+                mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            });
+
+            return blob;
+        }
+
+        function escapeXml(text) {
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;');
+        }
+
+        // Advanced spreadsheet conversion (same as before)
+        async function convertToSpreadsheetAdvanced(pdf, baseName) {
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Conteúdo PDF');
+            const detectTables = detectTablesCheckbox.checked;
+            const mergeSpaces = mergeSpacesCheckbox.checked;
+            const preserveFormatting = preserveFormattingCheckbox.checked;
+            const autoColumnWidth = autoColumnWidthCheckbox.checked;
+
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                
+                const items = textContent.items.map(item => ({
+                    text: item.str,
+                    x: Math.round(item.transform[4]),
+                    y: Math.round(item.transform[5]),
+                    width: item.width,
+                    height: item.height
+                }));
+
+                const rows = groupIntoRows(items, mergeSpaces);
+                const tableData = detectTables ? 
+                    detectAndFormatTable(rows, preserveFormatting) : 
+                    simpleRowFormat(rows, preserveFormatting);
+
+                const ws = XLSX.utils.aoa_to_sheet(tableData);
+
+                if (autoColumnWidth && tableData.length > 0) {
+                    const colWidths = [];
+                    const maxCols = Math.max(...tableData.map(row => row.length));
+                    
+                    for (let col = 0; col < maxCols; col++) {
+                        let maxWidth = 10;
+                        for (let row = 0; row < tableData.length; row++) {
+                            if (tableData[row][col]) {
+                                const cellLength = String(tableData[row][col]).length;
+                                maxWidth = Math.max(maxWidth, Math.min(cellLength + 2, 50));
+                            }
+                        }
+                        colWidths.push({ wch: maxWidth });
+                    }
+                    ws['!cols'] = colWidths;
+                }
+
+                const sheetName = pdf.numPages > 1 ? `Página ${pageNum}` : 'Dados';
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                
+                showProgress(50 + (pageNum / pdf.numPages) * 45);
+            }
 
             if (selectedFormat === 'xlsx') {
                 XLSX.writeFile(wb, `${baseName}.xlsx`);
@@ -486,43 +844,159 @@
             }
         }
 
-        async function convertToDocx(pdf, baseName) {
-            let fullText = '';
-            
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                
-                fullText += `\n\n--- Página ${i} ---\n\n`;
-                
-                textContent.items.forEach(item => {
-                    if (item.str.trim()) {
-                        fullText += item.str;
-                        if (item.hasEOL) {
-                            fullText += '\n';
-                        }
+        function groupIntoRows(items, mergeSpaces) {
+            if (items.length === 0) return [];
+
+            items.sort((a, b) => {
+                const yDiff = b.y - a.y;
+                if (Math.abs(yDiff) > 5) return yDiff;
+                return a.x - b.x;
+            });
+
+            const rows = [];
+            let currentRow = { y: items[0].y, items: [] };
+            const yTolerance = 5;
+
+            items.forEach(item => {
+                if (item.text.trim() === '') return;
+
+                if (Math.abs(item.y - currentRow.y) <= yTolerance) {
+                    currentRow.items.push(item);
+                } else {
+                    if (currentRow.items.length > 0) {
+                        rows.push(currentRow);
                     }
-                });
-                
-                showProgress(50 + (i / pdf.numPages) * 40);
+                    currentRow = { y: item.y, items: [item] };
+                }
+            });
+
+            if (currentRow.items.length > 0) {
+                rows.push(currentRow);
             }
 
-            // Criar um documento DOCX simples usando uma biblioteca básica
-            const blob = new Blob([fullText], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${baseName}.txt`;
-            a.click();
-            URL.revokeObjectURL(url);
+            return rows;
+        }
+
+        function detectAndFormatTable(rows, preserveFormatting) {
+            if (rows.length === 0) return [];
+
+            const allXPositions = new Set();
+            rows.forEach(row => {
+                row.items.forEach(item => {
+                    allXPositions.add(item.x);
+                });
+            });
+
+            const sortedX = Array.from(allXPositions).sort((a, b) => a - b);
+            const columns = [];
+            let currentCol = { start: sortedX[0], positions: [sortedX[0]] };
+            const colTolerance = 20;
+
+            for (let i = 1; i < sortedX.length; i++) {
+                if (sortedX[i] - currentCol.start <= colTolerance) {
+                    currentCol.positions.push(sortedX[i]);
+                } else {
+                    columns.push({
+                        x: Math.round(currentCol.positions.reduce((a, b) => a + b) / currentCol.positions.length),
+                        positions: currentCol.positions
+                    });
+                    currentCol = { start: sortedX[i], positions: [sortedX[i]] };
+                }
+            }
+            columns.push({
+                x: Math.round(currentCol.positions.reduce((a, b) => a + b) / currentCol.positions.length),
+                positions: currentCol.positions
+            });
+
+            const tableData = [];
+            rows.forEach(row => {
+                const rowData = new Array(columns.length).fill('');
+                
+                row.items.forEach(item => {
+                    let closestCol = 0;
+                    let minDist = Math.abs(item.x - columns[0].x);
+                    
+                    for (let i = 1; i < columns.length; i++) {
+                        const dist = Math.abs(item.x - columns[i].x);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            closestCol = i;
+                        }
+                    }
+
+                    const text = item.text.trim();
+                    if (text) {
+                        rowData[closestCol] = rowData[closestCol] ? 
+                            rowData[closestCol] + ' ' + text : text;
+                    }
+                });
+
+                if (preserveFormatting) {
+                    for (let i = 0; i < rowData.length; i++) {
+                        rowData[i] = formatCell(rowData[i]);
+                    }
+                }
+
+                tableData.push(rowData);
+            });
+
+            return tableData;
+        }
+
+        function simpleRowFormat(rows, preserveFormatting) {
+            const tableData = [];
             
-            showStatus('⚠️ Arquivo salvo como TXT (formato alternativo ao DOCX)');
+            rows.forEach(row => {
+                const rowItems = row.items
+                    .sort((a, b) => a.x - b.x)
+                    .map(item => item.text.trim())
+                    .filter(text => text !== '');
+                
+                if (preserveFormatting) {
+                    const formattedRow = rowItems.map(cell => formatCell(cell));
+                    tableData.push(formattedRow);
+                } else {
+                    tableData.push(rowItems);
+                }
+            });
+
+            return tableData;
+        }
+
+        function formatCell(text) {
+            if (!text || text === '') return '';
+
+            let normalized = text.replace(/\./g, '').replace(',', '.');
+            
+            if (/^-?\d+\.?\d*$/.test(normalized)) {
+                const num = parseFloat(normalized);
+                if (!isNaN(num)) {
+                    return num;
+                }
+            }
+
+            if (/^[R$€£¥]\s*[\d.,]+$/.test(text)) {
+                return text;
+            }
+
+            if (/^\d+\.?\d*%$/.test(text)) {
+                const num = parseFloat(text.replace('%', '')) / 100;
+                if (!isNaN(num)) {
+                    return num;
+                }
+            }
+
+            if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(text)) {
+                return text;
+            }
+
+            return text;
         }
 
         async function convertToImage(pdf, baseName) {
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
-                const viewport = page.getViewport({ scale: 2.0 });
+                const viewport = page.getViewport({ scale: 2.5 });
                 
                 const canvas = document.createElement('canvas');
                 const context = canvas.getContext('2d');
@@ -536,6 +1010,7 @@
 
                 const imageType = selectedFormat === 'jpeg' ? 'image/jpeg' : 'image/png';
                 const extension = selectedFormat === 'jpeg' ? 'jpg' : 'png';
+                const quality = selectedFormat === 'jpeg' ? 0.95 : 1.0;
                 
                 canvas.toBlob((blob) => {
                     const url = URL.createObjectURL(blob);
@@ -544,11 +1019,14 @@
                     a.download = `${baseName}_pagina_${i}.${extension}`;
                     a.click();
                     URL.revokeObjectURL(url);
-                }, imageType, 0.95);
+                }, imageType, quality);
 
                 showProgress(50 + (i / pdf.numPages) * 50);
             }
         }
+
+        // Show options by default for xlsx
+        optionsSection.classList.add('active');
     </script>
 </body>
 </html>
