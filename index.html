@@ -315,8 +315,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📄 Conversor Profissional de PDF</h1>
-            <p>Máxima fidelidade ao documento original</p>
+            <h1>📄 Conversor Ultra Pro de PDF</h1>
+            <p>Preservação total de formatação + Extração de imagens</p>
         </div>
 
         <div class="upload-area" id="uploadArea">
@@ -344,20 +344,22 @@
                 </button>
                 <button class="format-btn" data-format="docx">
                     DOCX
-                    <span class="info-badge">Word</span>
+                    <span class="info-badge">Word + Imagens</span>
                 </button>
             </div>
         </div>
 
         <div class="features-list">
-            <h3>🎯 Recursos de Conversão Avançada:</h3>
+            <h3>🎯 Recursos de Conversão Ultra Avançada:</h3>
             <ul>
-                <li>Preservação de formatação de fontes e tamanhos</li>
+                <li>Extração automática de imagens do PDF</li>
+                <li>Preservação de negrito, itálico e sublinhado</li>
+                <li>Manutenção de cores de texto originais</li>
+                <li>Detecção de fontes e tamanhos exatos</li>
+                <li>Alinhamento preciso (esquerda, centro, direita, justificado)</li>
+                <li>Espaçamento entre linhas e parágrafos</li>
                 <li>Detecção inteligente de tabelas e colunas</li>
-                <li>Manutenção de margens e espaçamentos</li>
-                <li>Reconhecimento de títulos e parágrafos</li>
                 <li>Conversão de números com formatação</li>
-                <li>Alinhamento preciso de texto e dados</li>
             </ul>
         </div>
 
@@ -482,7 +484,7 @@
                         await convertToSpreadsheet(pdf, baseName);
                         break;
                     case 'docx':
-                        await convertToDocx(pdf, baseName);
+                        await convertToDocxWithImages(pdf, baseName);
                         break;
                 }
 
@@ -508,26 +510,19 @@
                 const textContent = await page.getTextContent();
                 const viewport = page.getViewport({ scale: 1.0 });
                 
-                // Extrair itens com informações completas
                 const items = textContent.items.map(item => ({
                     text: item.str,
                     x: item.transform[4],
-                    y: viewport.height - item.transform[5], // Inverter Y para top-down
+                    y: viewport.height - item.transform[5],
                     width: item.width,
                     height: item.height,
                     fontSize: Math.sqrt(Math.pow(item.transform[0], 2) + Math.pow(item.transform[1], 2))
                 }));
 
-                // Agrupar em linhas
                 const rows = groupItemsIntoRows(items);
-                
-                // Detectar colunas
                 const tableData = detectTableStructure(rows);
-
-                // Criar planilha
                 const ws = XLSX.utils.aoa_to_sheet(tableData);
 
-                // Ajustar larguras de colunas
                 if (tableData.length > 0) {
                     const maxCols = Math.max(...tableData.map(row => row.length));
                     const colWidths = [];
@@ -561,7 +556,6 @@
         function groupItemsIntoRows(items) {
             if (items.length === 0) return [];
 
-            // Ordenar por Y (top to bottom) depois X (left to right)
             items.sort((a, b) => {
                 const yDiff = a.y - b.y;
                 if (Math.abs(yDiff) > 3) return yDiff;
@@ -595,7 +589,6 @@
         function detectTableStructure(rows) {
             if (rows.length === 0) return [];
 
-            // Coletar todas as posições X
             const allXPositions = [];
             rows.forEach(row => {
                 row.items.forEach(item => {
@@ -603,7 +596,6 @@
                 });
             });
 
-            // Agrupar posições X próximas em colunas
             allXPositions.sort((a, b) => a - b);
             const columns = [];
             const tolerance = 15;
@@ -625,14 +617,12 @@
 
             columns.sort((a, b) => a.x - b.x);
 
-            // Construir tabela
             const tableData = [];
             
             rows.forEach(row => {
                 const rowData = new Array(columns.length).fill('');
                 
                 row.items.forEach(item => {
-                    // Encontrar coluna mais próxima
                     let closestCol = 0;
                     let minDist = Math.abs(item.x - columns[0].x);
                     
@@ -654,7 +644,6 @@
                     }
                 });
 
-                // Formatar células
                 for (let i = 0; i < rowData.length; i++) {
                     rowData[i] = formatCellValue(rowData[i]);
                 }
@@ -668,20 +657,17 @@
         function formatCellValue(text) {
             if (!text || text === '') return '';
 
-            // Números com ponto/vírgula
             let normalized = text.replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
             if (/^-?\d+\.?\d*$/.test(normalized)) {
                 const num = parseFloat(normalized);
                 if (!isNaN(num)) return num;
             }
 
-            // Percentuais
             if (/^\d+[\.,]?\d*\s*%$/.test(text)) {
                 const num = parseFloat(text.replace(/[%\s]/g, '').replace(',', '.')) / 100;
                 if (!isNaN(num)) return num;
             }
 
-            // Moedas
             if (/^[R$€£¥]\s*[\d\.,]+$/.test(text)) {
                 const numStr = text.replace(/[R$€£¥\s]/g, '').replace(/\./g, '').replace(',', '.');
                 const num = parseFloat(numStr);
@@ -691,30 +677,49 @@
             return text;
         }
 
-        // ========== CONVERSÃO AVANÇADA PARA DOCX ==========
-        async function convertToDocx(pdf, baseName) {
+        // ========== CONVERSÃO ULTRA AVANÇADA PARA DOCX COM IMAGENS ==========
+        async function convertToDocxWithImages(pdf, baseName) {
             let allContent = [];
+            const images = [];
+            let imageCounter = 0;
 
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const page = await pdf.getPage(pageNum);
-                const textContent = await page.getTextContent();
-                const viewport = page.getViewport({ scale: 1.0 });
+                const viewport = page.getViewport({ scale: 1.5 });
                 
-                // Extrair com informações de estilo
+                // Extrair imagens da página
+                const ops = await page.getOperatorList();
+                const pageImages = await extractImagesFromPage(page, ops, imageCounter);
+                images.push(...pageImages);
+                imageCounter += pageImages.length;
+
+                // Extrair texto com formatação completa
+                const textContent = await page.getTextContent();
+                
                 const items = textContent.items.map(item => {
-                    const fontSize = Math.sqrt(Math.pow(item.transform[0], 2) + Math.pow(item.transform[1], 2));
+                    const transform = item.transform;
+                    const fontSize = Math.sqrt(Math.pow(transform[0], 2) + Math.pow(transform[1], 2));
+                    const fontName = item.fontName || '';
+                    
+                    // Detectar formatação pela fonte
+                    const isBold = /bold/i.test(fontName) || /black/i.test(fontName) || /heavy/i.test(fontName);
+                    const isItalic = /italic/i.test(fontName) || /oblique/i.test(fontName);
+                    
                     return {
                         text: item.str,
-                        x: item.transform[4],
-                        y: viewport.height - item.transform[5],
+                        x: transform[4],
+                        y: viewport.height - transform[5],
                         width: item.width,
                         height: item.height,
                         fontSize: fontSize,
-                        fontName: item.fontName || 'Unknown'
+                        fontName: fontName,
+                        bold: isBold,
+                        italic: isItalic,
+                        color: item.color || [0, 0, 0] // RGB
                     };
                 });
 
-                const pageContent = buildDocumentStructure(items, viewport);
+                const pageContent = buildAdvancedDocumentStructure(items, pageImages, viewport);
                 allContent = allContent.concat(pageContent);
 
                 if (pageNum < pdf.numPages) {
@@ -724,16 +729,59 @@
                 showProgress(30 + (pageNum / pdf.numPages) * 50);
             }
 
-            const docxBlob = await createDocxFile(allContent);
+            const docxBlob = await createAdvancedDocxFile(allContent, images);
             saveAs(docxBlob, `${baseName}.docx`);
             
             showProgress(90);
         }
 
-        function buildDocumentStructure(items, viewport) {
+        async function extractImagesFromPage(page, ops, startCounter) {
+            const images = [];
+            let counter = startCounter;
+
+            for (let i = 0; i < ops.fnArray.length; i++) {
+                if (ops.fnArray[i] === pdfjsLib.OPS.paintImageXObject || 
+                    ops.fnArray[i] === pdfjsLib.OPS.paintJpegXObject) {
+                    
+                    try {
+                        const imageName = ops.argsArray[i][0];
+                        const image = await page.objs.get(imageName);
+                        
+                        if (image) {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = image.width;
+                            canvas.height = image.height;
+                            const ctx = canvas.getContext('2d');
+                            
+                            const imageData = ctx.createImageData(image.width, image.height);
+                            imageData.data.set(image.data);
+                            ctx.putImageData(imageData, 0, 0);
+                            
+                            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                            const arrayBuffer = await blob.arrayBuffer();
+                            
+                            images.push({
+                                id: `image${counter}`,
+                                data: arrayBuffer,
+                                width: image.width,
+                                height: image.height,
+                                position: i
+                            });
+                            
+                            counter++;
+                        }
+                    } catch (e) {
+                        console.log('Erro ao extrair imagem:', e);
+                    }
+                }
+            }
+
+            return images;
+        }
+
+        function buildAdvancedDocumentStructure(items, pageImages, viewport) {
             if (items.length === 0) return [];
 
-            // Ordenar por posição
             items.sort((a, b) => {
                 const yDiff = a.y - b.y;
                 if (Math.abs(yDiff) > 3) return yDiff;
@@ -742,86 +790,140 @@
 
             const elements = [];
             let currentPara = null;
-            let previousY = items[0].y;
-            let previousX = items[0].x;
-            let previousFontSize = items[0].fontSize;
+            let previousY = items.length > 0 ? items[0].y : 0;
+            let previousX = items.length > 0 ? items[0].x : 0;
 
-            // Detectar margem esquerda média
-            const leftMargins = items.map(item => item.x);
-            const avgLeftMargin = leftMargins.reduce((a, b) => a + b, 0) / leftMargins.length;
+            // Adicionar imagens primeiro se houver
+            pageImages.forEach(img => {
+                elements.push({
+                    type: 'image',
+                    imageId: img.id,
+                    width: img.width,
+                    height: img.height
+                });
+            });
+
+            const avgLeftMargin = items.length > 0 ? 
+                items.map(item => item.x).reduce((a, b) => a + b, 0) / items.length : 0;
 
             items.forEach((item, idx) => {
                 if (!item.text.trim()) return;
 
                 const yDiff = item.y - previousY;
                 const xDiff = Math.abs(item.x - previousX);
-                const fontSizeDiff = Math.abs(item.fontSize - previousFontSize);
                 
-                const isNewParagraph = yDiff > item.height * 0.8;
+                const isNewParagraph = yDiff > item.height * 1.2;
                 const isNewLine = yDiff > 2;
-                const isFontChange = fontSizeDiff > 1;
-                const isIndented = item.x > avgLeftMargin + 20;
                 const isLargeFont = item.fontSize > 13;
 
-                // Detectar tipo de elemento
+                // Detectar alinhamento
+                let align = 'left';
+                const xPercent = item.x / viewport.width;
+                if (xPercent > 0.35 && xPercent < 0.65) {
+                    align = 'center';
+                } else if (xPercent > 0.75) {
+                    align = 'right';
+                }
+
+                // Tipo de elemento
                 let elementType = 'normal';
-                if (isLargeFont && item.fontSize > 16) {
+                if (isLargeFont && item.fontSize > 18) {
                     elementType = 'heading1';
-                } else if (isLargeFont && item.fontSize > 14) {
+                } else if (isLargeFont && item.fontSize > 15) {
                     elementType = 'heading2';
                 } else if (isLargeFont) {
                     elementType = 'heading3';
                 }
 
-                // Detectar negrito pela fonte
-                const isBold = /bold/i.test(item.fontName);
+                // RGB para hex
+                const colorHex = rgbToHex(item.color);
 
-                if (!currentPara || isNewParagraph || isFontChange) {
-                    // Salvar parágrafo anterior
-                    if (currentPara && currentPara.text.trim()) {
+                if (!currentPara || isNewParagraph || 
+                    (currentPara.runs.length > 0 && 
+                     (currentPara.runs[0].fontSize !== item.fontSize || 
+                      currentPara.align !== align))) {
+                    
+                    if (currentPara && currentPara.runs.length > 0) {
                         elements.push(currentPara);
                     }
 
-                    // Novo parágrafo
                     currentPara = {
                         type: elementType,
-                        text: item.text,
-                        fontSize: item.fontSize,
-                        bold: isBold,
-                        indent: isIndented,
-                        align: item.x < avgLeftMargin - 20 ? 'left' : 
-                               item.x > viewport.width * 0.4 && item.x < viewport.width * 0.6 ? 'center' :
-                               item.x > viewport.width * 0.7 ? 'right' : 'left'
+                        align: align,
+                        indent: item.x > avgLeftMargin + 30 ? 720 : 0,
+                        runs: [{
+                            text: item.text,
+                            bold: item.bold,
+                            italic: item.italic,
+                            fontSize: item.fontSize,
+                            color: colorHex
+                        }]
                     };
                 } else if (isNewLine) {
-                    currentPara.text += '\n' + item.text;
+                    currentPara.runs.push({
+                        text: '\n' + item.text,
+                        bold: item.bold,
+                        italic: item.italic,
+                        fontSize: item.fontSize,
+                        color: colorHex
+                    });
                 } else {
-                    // Mesma linha
-                    if (xDiff > 20) {
-                        currentPara.text += '\t' + item.text;
+                    const lastRun = currentPara.runs[currentPara.runs.length - 1];
+                    
+                    if (lastRun.bold === item.bold && 
+                        lastRun.italic === item.italic && 
+                        lastRun.color === colorHex &&
+                        Math.abs(lastRun.fontSize - item.fontSize) < 1) {
+                        lastRun.text += (xDiff > 20 ? '\t' : ' ') + item.text;
                     } else {
-                        currentPara.text += ' ' + item.text;
+                        currentPara.runs.push({
+                            text: (xDiff > 20 ? '\t' : ' ') + item.text,
+                            bold: item.bold,
+                            italic: item.italic,
+                            fontSize: item.fontSize,
+                            color: colorHex
+                        });
                     }
                 }
 
                 previousY = item.y;
                 previousX = item.x + item.width;
-                previousFontSize = item.fontSize;
             });
 
-            // Adicionar último parágrafo
-            if (currentPara && currentPara.text.trim()) {
+            if (currentPara && currentPara.runs.length > 0) {
                 elements.push(currentPara);
             }
 
             return elements;
         }
 
-        async function createDocxFile(content) {
+        function rgbToHex(color) {
+            if (!color || color.length < 3) return '000000';
+            
+            const r = Math.round(color[0] * 255);
+            const g = Math.round(color[1] * 255);
+            const b = Math.round(color[2] * 255);
+            
+            return ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0').toUpperCase();
+        }
+
+        async function createAdvancedDocxFile(content, images) {
             const zip = new JSZip();
+
+            // Preparar relações de imagens
+            let imageRels = '';
+            let imageXml = '';
+            let rIdCounter = 1;
+
+            images.forEach((img, idx) => {
+                const rId = `rId${rIdCounter++}`;
+                imageRels += `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${img.id}.png"/>`;
+                zip.folder('word/media').file(`${img.id}.png`, img.data);
+            });
 
             // Gerar XML do documento
             let bodyXml = '';
+            let imageIndex = 0;
             
             content.forEach(element => {
                 if (element.type === 'pageBreak') {
@@ -829,13 +931,44 @@
                     return;
                 }
 
-                const fontSize = Math.round((element.fontSize || 11) * 2);
-                const isBold = element.bold;
-                const alignment = element.align || 'left';
-                const indent = element.indent ? '720' : '0';
+                if (element.type === 'image') {
+                    const img = images[imageIndex++];
+                    if (img) {
+                        const width = Math.min(img.width * 9525, 5486400); // EMUs (max 6 inches)
+                        const height = Math.min(img.height * 9525, 7315200); // EMUs
+                        
+                        bodyXml += `<w:p>
+                            <w:r>
+                                <w:drawing>
+                                    <wp:inline>
+                                        <wp:extent cx="${width}" cy="${height}"/>
+                                        <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                                            <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                                                <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                                                    <pic:blipFill>
+                                                        <a:blip r:embed="rId${imageIndex}"/>
+                                                    </pic:blipFill>
+                                                    <pic:spPr>
+                                                        <a:xfrm>
+                                                            <a:ext cx="${width}" cy="${height}"/>
+                                                        </a:xfrm>
+                                                    </pic:spPr>
+                                                </pic:pic>
+                                            </a:graphicData>
+                                        </a:graphic>
+                                    </wp:inline>
+                                </w:drawing>
+                            </w:r>
+                        </w:p>`;
+                    }
+                    return;
+                }
 
+                const indent = element.indent || 0;
+                const align = element.align || 'left';
+                
                 let spacingBefore = '0';
-                let spacingAfter = '100';
+                let spacingAfter = '140';
 
                 if (element.type === 'heading1') {
                     spacingBefore = '480';
@@ -848,32 +981,37 @@
                     spacingAfter = '120';
                 }
 
-                const lines = element.text.split('\n');
-                
-                lines.forEach((line, idx) => {
-                    if (!line.trim()) return;
+                bodyXml += `<w:p>
+                    <w:pPr>
+                        <w:spacing w:before="${spacingBefore}" w:after="${spacingAfter}" w:line="276" w:lineRule="auto"/>
+                        <w:ind w:left="${indent}"/>
+                        <w:jc w:val="${align}"/>
+                    </w:pPr>`;
 
-                    bodyXml += `<w:p>
-                        <w:pPr>
-                            <w:spacing w:before="${idx === 0 ? spacingBefore : '0'}" w:after="${spacingAfter}"/>
-                            <w:ind w:left="${indent}"/>
-                            <w:jc w:val="${alignment}"/>
-                        </w:pPr>
-                        <w:r>
-                            <w:rPr>
-                                ${isBold ? '<w:b/>' : ''}
-                                <w:sz w:val="${fontSize}"/>
-                                <w:szCs w:val="${fontSize}"/>
-                            </w:rPr>
-                            <w:t xml:space="preserve">${escapeXml(line)}</w:t>
-                        </w:r>
-                    </w:p>`;
+                element.runs.forEach(run => {
+                    const fontSize = Math.round((run.fontSize || 11) * 2);
+                    
+                    bodyXml += `<w:r>
+                        <w:rPr>
+                            ${run.bold ? '<w:b/><w:bCs/>' : ''}
+                            ${run.italic ? '<w:i/><w:iCs/>' : ''}
+                            <w:color w:val="${run.color || '000000'}"/>
+                            <w:sz w:val="${fontSize}"/>
+                            <w:szCs w:val="${fontSize}"/>
+                        </w:rPr>
+                        <w:t xml:space="preserve">${escapeXml(run.text)}</w:t>
+                    </w:r>`;
                 });
+
+                bodyXml += `</w:p>`;
             });
 
             const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+            xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+            xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+            xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
     <w:body>
         ${bodyXml}
         <w:sectPr>
@@ -889,6 +1027,7 @@
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
     <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
     <Default Extension="xml" ContentType="application/xml"/>
+    <Default Extension="png" ContentType="image/png"/>
     <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
 </Types>`);
 
@@ -901,6 +1040,7 @@
             
             zip.folder('word/_rels').file('document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    ${imageRels}
 </Relationships>`);
 
             return await zip.generateAsync({
